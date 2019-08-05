@@ -6,10 +6,39 @@ const GameEntity = require("../entities/gameEntity");
 
 const create = (request) => {
     return new Promise((resolve, reject) => {
-        let entity = new GameEntity(request);
+        let issues = [];
+
+        if (!request.name) {
+            issues.push("Name is required");
+        }
+
+        if (typeof request.rating === "undefined") {
+            issues.push("Rating is required");
+        } else {
+            const rating = parseInt(request.rating);
+
+            if (isNaN(rating) || rating < 1 || rating > 10) {
+                issues.push("Rating must be a whole number between 1 and 10");
+            }
+        }
+
+        if (issues.length) {
+            reject({
+                code: 400,
+                message: issues.join(", ")
+            });
+
+            return;
+        }
+        
+        let entity = new GameEntity({
+            name: request.name,
+            rating: request.rating
+        });
 
         entity.save(err => {
             if (err) {
+                console.log(err);
                 reject(err);
             }
 
@@ -30,6 +59,15 @@ const getAll = () => {
 };
 const getById = (id) => {
     return new Promise((resolve, reject) => {
+        if (!id) {
+            reject({
+                code: 400,
+                message: "Id is required"
+            });
+
+            return;
+        }
+        
         GameEntity.findById(id, (err, entity) => {
             if (err) {
                 reject(err);
