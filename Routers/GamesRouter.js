@@ -30,7 +30,7 @@ const create = (request) => {
 
             return;
         }
-        
+
         let entity = new GameEntity({
             name: request.name,
             rating: request.rating
@@ -38,11 +38,10 @@ const create = (request) => {
 
         entity.save(err => {
             if (err) {
-                console.log(err);
                 reject(err);
+            } else {
+                resolve(entity);
             }
-
-            resolve(entity);
         });
     });
 };
@@ -59,33 +58,40 @@ const getAll = () => {
 };
 const getById = (id) => {
     return new Promise((resolve, reject) => {
-        if (!id) {
-            reject({
-                code: 400,
-                message: "Id is required"
-            });
-
-            return;
-        }
-        
         GameEntity.findById(id, (err, entity) => {
             if (err) {
-                reject(err);
+                if (err.name === "CastError") {
+                    reject({ code: 400, message: "Invalid Id" });
+                } else {
+                    reject(err);
+                }
+            } else if (entity === null) {
+                reject({ code: 404, message: "Game not found" });
             } else {
                 resolve(entity);
             }
         });
     });
 };
+const del = (id) => {
+    return getById(id)
+        .then(entity => new Promise((resolve, reject) => GameEntity.deleteOne(entity, err => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        })));
+};
 
 gamesRouter.route("/games")
     .get((req, res) => {
         return getAll()
-        .then(entities => {
-            return res.status(200).json(entities);
-        }, err => {
-            return responseHandler.handleError(res, err);
-        });
+            .then(entities => {
+                return res.status(200).json(entities);
+            }, err => {
+                return responseHandler.handleError(res, err);
+            });
     })
     .post((req, res) => {
         return create(req.body)
@@ -100,11 +106,19 @@ gamesRouter.route("/games")
 gamesRouter.route("/games/:id")
     .get((req, res) => {
         return getById(req.params.id)
-        .then(entity => {
-            return res.status(200).json(entity);
-        }, err => {
-            return responseHandler.handleError(res, err);
-        });
-    });
+            .then(entity => {
+                return res.status(200).json(entity);
+            }, err => {
+                return responseHandler.handleError(res, err);
+            });
+    })
+    .delete((req, res) => {
+        return del(req.params.id)
+            .then(_ => {
+                return res.status(200).send();
+            }, err => {
+                return responseHandler.handleError(res, err);
+            });
+    });;
 
 module.exports = gamesRouter;
